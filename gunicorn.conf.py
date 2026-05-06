@@ -14,7 +14,7 @@ proxy_protocol = True
 # Logging
 accesslog = "-"
 errorlog = "-"
-loglevel = "info"
+loglevel = "debug"
 
 # Security
 limit_request_line = 4096
