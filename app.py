@@ -2,6 +2,8 @@ import os
 import requests
 import base64
 import time
+import cloudinary
+import cloudinary.uploader
 from flask import (
     Flask, render_template, request, jsonify,
     send_from_directory, redirect, url_for, abort
@@ -19,10 +21,14 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 from models import db, User, Image
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///aicraft.db"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-this-in-production")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///aicraft.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max upload
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
+
+# Fix Render's postgres:// -> postgresql://
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace("postgres://", "postgresql://", 1)
 
 db.init_app(app)
 
@@ -30,10 +36,19 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to generate images."
 
+# Cloudinary config
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
 HF_TOKEN = os.getenv("HF_API_KEY")
 REPLICATE_TOKEN = os.getenv("REPLICATE_API_TOKEN")
 DAILY_LIMIT = 20
 
+# Local output folder (fallback if Cloudinary not configured)
 os.makedirs(os.path.join(os.path.dirname(__file__), "static", "output"), exist_ok=True)
 
 
@@ -44,19 +59,26 @@ def load_user(user_id):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def save_image_from_bytes(image_bytes: bytes, user_id: int) -> str:
+def upload_image(image_bytes: bytes, user_id: int) -> tuple:
+    """Upload image to Cloudinary. Returns (url, public_id)."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    filename = f"u{user_id}_{timestamp}.png"
-    filepath = os.path.join(os.path.dirname(__file__), "static", "output", filename)
-    with open(filepath, "wb") as f:
-        f.write(image_bytes)
-    return filename
+    public_id = f"aicraft/u{user_id}_{timestamp}"
+
+    result = cloudinary.uploader.upload(
+        image_bytes,
+        public_id=public_id,
+        resource_type="image",
+        format="png",
+        overwrite=False,
+    )
+    return result["secure_url"], result["public_id"]
 
 
-def save_image_from_url(image_url: str, user_id: int) -> str:
+def upload_image_from_url(image_url: str, user_id: int) -> tuple:
+    """Download from URL then upload to Cloudinary."""
     response = requests.get(image_url, timeout=60)
     response.raise_for_status()
-    return save_image_from_bytes(response.content, user_id)
+    return upload_image(response.content, user_id)
 
 
 def replicate_run(model: str, input_data: dict) -> str:
@@ -98,7 +120,7 @@ ASPECT_RATIOS = {
 }
 
 
-# ── Auth routes ────────────────────────────────────────────────────────────────
+# ── Auth ───────────────────────────────────────────────────────────────────────
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -151,8 +173,7 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             login_user(user, remember=remember)
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("index"))
+            return redirect(request.args.get("next") or url_for("index"))
 
         return render_template("login.html", error="Invalid email or password.", email=email)
 
@@ -166,7 +187,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ── Main app ───────────────────────────────────────────────────────────────────
+# ── Main ───────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 @login_required
@@ -190,7 +211,7 @@ def generate():
 
     width, height = ASPECT_RATIOS.get(aspect, (1024, 1024))
 
-    url = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+    hf_url = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {
         "inputs": prompt,
@@ -203,27 +224,28 @@ def generate():
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=120)
+        response = requests.post(hf_url, headers=headers, json=payload, timeout=120)
         if response.status_code == 503:
             time.sleep(20)
-            response = requests.post(url, headers=headers, json=payload, timeout=120)
+            response = requests.post(hf_url, headers=headers, json=payload, timeout=120)
         if response.status_code != 200:
             return jsonify({"error": f"API error {response.status_code}: {response.text}"}), 500
 
-        filename = save_image_from_bytes(response.content, current_user.id)
+        image_url, public_id = upload_image(response.content, current_user.id)
         image_b64 = base64.b64encode(response.content).decode("utf-8")
 
-        img_record = Image(user_id=current_user.id, filename=filename, prompt=prompt, type="generate")
-        db.session.add(img_record)
+        img = Image(user_id=current_user.id, filename=public_id, prompt=prompt,
+                    type="generate", image_url=image_url)
+        db.session.add(img)
         current_user.increment_count()
         db.session.commit()
 
         return jsonify({
             "success": True,
             "image": f"data:image/png;base64,{image_b64}",
-            "filename": filename,
-            "path": f"/static/output/{filename}",
-            "share_url": url_for("share", filename=filename, _external=True),
+            "filename": public_id,
+            "path": image_url,
+            "share_url": url_for("share", image_id=img.id, _external=True),
             "remaining": current_user.remaining_generations(DAILY_LIMIT),
         })
     except Exception as e:
@@ -254,21 +276,24 @@ def edit():
             {"prompt": prompt, "input_image": image_data_url, "output_format": "png", "safety_tolerance": 5},
         )
 
-        filename = save_image_from_url(output_url, current_user.id)
-        with open(os.path.join(os.path.dirname(__file__), "static", "output", filename), "rb") as f:
-            image_b64 = base64.b64encode(f.read()).decode("utf-8")
+        image_url, public_id = upload_image_from_url(output_url, current_user.id)
 
-        img_record = Image(user_id=current_user.id, filename=filename, prompt=prompt, type="edit")
-        db.session.add(img_record)
+        # Read back for base64
+        img_bytes = requests.get(image_url, timeout=30).content
+        image_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+        img = Image(user_id=current_user.id, filename=public_id, prompt=prompt,
+                    type="edit", image_url=image_url)
+        db.session.add(img)
         current_user.increment_count()
         db.session.commit()
 
         return jsonify({
             "success": True,
             "image": f"data:image/png;base64,{image_b64}",
-            "filename": filename,
-            "path": f"/static/output/{filename}",
-            "share_url": url_for("share", filename=filename, _external=True),
+            "filename": public_id,
+            "path": image_url,
+            "share_url": url_for("share", image_id=img.id, _external=True),
             "remaining": current_user.remaining_generations(DAILY_LIMIT),
         })
     except Exception as e:
@@ -288,23 +313,21 @@ def gallery():
         "prompt": img.prompt,
         "type": img.type,
         "created_at": img.created_at.isoformat(),
-        "path": f"/static/output/{img.filename}",
-        "share_url": url_for("share", filename=img.filename, _external=True),
+        "path": img.image_url,
+        "share_url": url_for("share", image_id=img.id, _external=True),
     } for img in images])
 
 
-@app.route("/share/<filename>")
-def share(filename):
-    filename = os.path.basename(filename)
-    img = Image.query.filter_by(filename=filename).first()
+@app.route("/share/<int:image_id>")
+def share(image_id):
+    img = db.session.get(Image, image_id)
     if not img:
         abort(404)
     return render_template(
         "share.html",
-        filename=filename,
         prompt=img.prompt,
-        image_url=url_for("serve_image", filename=filename, _external=True),
-        share_url=url_for("share", filename=filename, _external=True),
+        image_url=img.image_url,
+        share_url=url_for("share", image_id=img.id, _external=True),
         created_at=img.created_at.strftime("%B %d, %Y"),
         image_type=img.type,
     )
@@ -313,14 +336,13 @@ def share(filename):
 @app.route("/static/output/<filename>")
 def serve_image(filename):
     filename = os.path.basename(filename)
-    return send_from_directory(os.path.join(os.path.dirname(__file__), "static", "output"), filename)
+    return send_from_directory(
+        os.path.join(os.path.dirname(__file__), "static", "output"), filename)
 
 
-with app.app_context():
-    db.create_all()
-
-
-@app.errorhandler(RequestEntityTooLarge)
+@app.route("/google6e5d17f5072374ec.html")
+def google_verify():
+    return render_template("google6e5d17f5072374ec (1).html")
 def file_too_large(e):
     return jsonify({"error": "File too large. Maximum size is 10MB."}), 413
 
@@ -328,6 +350,10 @@ def file_too_large(e):
 @app.errorhandler(404)
 def not_found(e):
     return render_template("404.html"), 404
+
+
+with app.app_context():
+    db.create_all()
 
 
 if __name__ == "__main__":
