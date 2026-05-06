@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ prompt[:60] }}{% if prompt|length > 60 %}…{% endif %} — AiCraft</title>
+  <link rel="icon" type="image/png" href="/static/logo.png"/>
+  <meta property="og:title" content="AI Image by AiCraft"/>
+  <meta property="og:description" content="{{ prompt }}"/>
+  <meta property="og:image" content="{{ image_url }}"/>
+  <meta property="og:type" content="website"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:image" content="{{ image_url }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a24; --border: #2a2a3a;
+      --accent: #7c3aed; --accent2: #a855f7; --accent3: #06b6d4; --text: #f1f1f5; --text2: #9090a8;
+    }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 24px 60px;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 20% 20%, rgba(124,58,237,0.12) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 40% at 80% 80%, rgba(6,182,212,0.08) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+    .content { position: relative; z-index: 1; width: 100%; max-width: 720px; }
+    .nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon { width: 36px; height: 36px; border-radius: 9px; overflow: hidden; }
+    .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .logo-text {
+      font-size: 18px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent2), var(--accent3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .try-btn {
+      padding: 10px 20px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white; font-size: 13px; font-weight: 600; cursor: pointer;
+      text-decoration: none; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .try-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.4); }
+    .image-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; overflow: hidden; margin-bottom: 24px;
+    }
+    .shared-image { width: 100%; display: block; max-height: 70vh; object-fit: contain; background: var(--surface2); }
+    .image-meta { padding: 24px 28px; }
+    .type-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+      border-radius: 20px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;
+    }
+    .type-badge.generate { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); color: var(--accent2); }
+    .type-badge.edit { background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); color: var(--accent3); }
+    .prompt-text { font-size: 17px; font-weight: 500; line-height: 1.6; margin-bottom: 12px; }
+    .meta-date { font-size: 13px; color: var(--text2); }
+    .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
+      border-radius: 14px; border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer;
+      text-decoration: none; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .action-btn:hover { border-color: var(--accent); background: rgba(124,58,237,0.08); }
+    .action-btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: white;
+    }
+    .action-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.4); }
+    .cta-section {
+      text-align: center; padding: 32px 28px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 24px;
+    }
+    .cta-section h2 {
+      font-size: 22px; font-weight: 700; margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2) 70%, var(--accent3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .cta-section p { color: var(--text2); font-size: 14px; margin-bottom: 20px; }
+    .cta-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px;
+      border-radius: 14px; border: none; background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white; font-size: 15px; font-weight: 600; cursor: pointer;
+      text-decoration: none; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .cta-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124,58,237,0.4); }
+    @media (max-width: 600px) {
+      .image-meta { padding: 18px 20px; }
+      .action-row { flex-direction: column; }
+      .action-btn { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <nav class="nav">
+      <a href="/" class="logo">
+        <div class="logo-icon"><img src="/static/logo.png" alt="AiCraft"/></div>
+        <span class="logo-text">AiCraft</span>
+      </a>
+      <a href="/register" class="try-btn">✦ Try for Free</a>
+    </nav>
+    <div class="image-card">
+      <img src="{{ image_url }}" alt="{{ prompt }}" class="shared-image"/>
+      <div class="image-meta">
+        <div class="type-badge {{ image_type }}">
+          {% if image_type == 'generate' %}✦ Generated{% else %}✎ Edited{% endif %}
+        </div>
+        <p class="prompt-text">"{{ prompt }}"</p>
+        <p class="meta-date">Created {{ created_at }} with AiCraft</p>
+      </div>
+    </div>
+    <div class="action-row">
+      <a href="{{ image_url }}" download="aicraft-image.png" class="action-btn primary">⬇ Download Image</a>
+      <button class="action-btn" onclick="copyLink()" id="copy-btn">🔗 Copy Share Link</button>
+    </div>
+    <div class="cta-section">
+      <h2>Create your own AI images</h2>
+      <p>Free account · 20 generations per day · No credit card needed</p>
+      <a href="/register" class="cta-btn">✦ Start Creating for Free</a>
+    </div>
+  </div>
+  <script>
+    const SHARE_URL = {{ share_url | tojson }};
+    function copyLink() {
+      navigator.clipboard.writeText(SHARE_URL).then(() => {
+        document.getElementById('copy-btn').textContent = '✓ Copied!';
+        setTimeout(() => { document.getElementById('copy-btn').textContent = '🔗 Copy Share Link'; }, 2500);
+      }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = SHARE_URL; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        document.getElementById('copy-btn').textContent = '✓ Copied!';
+        setTimeout(() => { document.getElementById('copy-btn').textContent = '🔗 Copy Share Link'; }, 2500);
+      });
+    }
+  </script>
+</body>
+</html>

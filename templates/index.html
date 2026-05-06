@@ -1,0 +1,1476 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AiCraft - AI Image Generator</title>
+  <link rel="icon" type="image/png" href="/static/logo.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --accent3: #06b6d4;
+      --text: #f1f1f5;
+      --text2: #9090a8;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 20%, rgba(124,58,237,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(6,182,212,0.1) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+
+    .navbar-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon { width: 32px; height: 32px; border-radius: 8px; overflow: hidden; }
+    .nav-logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+    .nav-logo-text {
+      font-size: 17px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent2), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-username {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .quota-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      color: var(--accent2);
+      cursor: default;
+    }
+
+    .quota-badge.low {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.3);
+      color: #fca5a5;
+    }
+
+    .nav-btn {
+      padding: 7px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .nav-btn.about-btn {
+      color: var(--accent3);
+      border-color: rgba(6,182,212,0.3);
+    }
+
+    .nav-btn.about-btn:hover { background: rgba(6,182,212,0.08); }
+
+    /* ── Main container ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      padding: 40px 0 0;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2) 70%, var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text2);
+      font-size: 1.1rem;
+      margin-bottom: 40px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 6px;
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+    .tab-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      resize: vertical;
+      transition: border-color 0.2s;
+      outline: none;
+      margin-bottom: 16px;
+    }
+
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--text2); }
+
+    /* ── Suggestions / history chips ── */
+    .suggestions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .suggestion-chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .suggestion-chip:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .history-chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(6,182,212,0.3);
+      background: rgba(6,182,212,0.06);
+      color: var(--accent3);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-chip:hover { border-color: var(--accent3); background: rgba(6,182,212,0.12); }
+
+    .history-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      margin-top: 4px;
+    }
+
+    /* ── Aspect ratio selector ── */
+    .aspect-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .aspect-option {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .aspect-option:hover { border-color: var(--accent); }
+    .aspect-option.selected { border-color: var(--accent); background: rgba(124,58,237,0.1); }
+
+    .aspect-option input[type="radio"] { display: none; }
+
+    .aspect-preview {
+      background: rgba(124,58,237,0.3);
+      border-radius: 4px;
+    }
+
+    .aspect-preview.square  { width: 28px; height: 28px; }
+    .aspect-preview.landscape { width: 40px; height: 22px; }
+    .aspect-preview.portrait  { width: 22px; height: 36px; }
+
+    .aspect-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+    .aspect-option.selected .aspect-label { color: var(--accent2); }
+
+    /* ── Upload area ── */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--accent);
+      background: rgba(124,58,237,0.05);
+    }
+
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .upload-text { color: var(--text2); font-size: 14px; }
+    .upload-text strong { color: var(--accent2); }
+
+    .preview-wrapper { display: none; position: relative; margin-bottom: 20px; }
+    .preview-wrapper.visible { display: block; }
+
+    .preview-img {
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .remove-preview {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid var(--border);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Generate button ── */
+    .generate-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .generate-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--accent2), var(--accent3));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .generate-btn:hover::before { opacity: 1; }
+    .generate-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124,58,237,0.4); }
+    .generate-btn:active { transform: translateY(0); }
+    .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .generate-btn span { position: relative; z-index: 1; }
+
+    /* ── Loading ── */
+    .loading-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 20px;
+    }
+
+    .loading-overlay.visible { display: flex; }
+
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent2);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { color: var(--text2); font-size: 15px; }
+
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+    }
+
+    /* ── Result ── */
+    .result-section { display: none; }
+    .result-section.visible { display: block; }
+
+    .result-image-wrapper {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--surface2);
+      margin-bottom: 16px;
+    }
+
+    .result-image {
+      width: 100%;
+      display: block;
+      border-radius: 20px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .image-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      display: flex;
+      align-items: flex-end;
+      padding: 20px;
+      border-radius: 20px;
+    }
+
+    .result-image-wrapper:hover .image-overlay { opacity: 1; }
+
+    .action-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .action-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .action-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Gallery ── */
+    .gallery-section { margin-bottom: 60px; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title { font-size: 20px; font-weight: 600; }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .gallery-item {
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 1;
+      background: var(--surface2);
+      cursor: pointer;
+      transition: transform 0.2s;
+      position: relative;
+    }
+
+    .gallery-item:hover { transform: scale(1.03); }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-item .del-btn {
+      display: none;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      border: none;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .gallery-item:hover .del-btn { display: flex; }
+
+    .gallery-item .share-btn {
+      display: none;
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      border: none;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      text-decoration: none;
+    }
+
+    .gallery-item:hover .share-btn { display: flex; }
+
+    /* ── Error ── */
+    .error-msg {
+      display: none;
+      padding: 14px 18px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 12px;
+      color: #fca5a5;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── Lightbox ── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .lightbox.visible { display: flex; }
+
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 16px;
+      object-fit: contain;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── About modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 40px;
+      max-width: 520px;
+      width: 100%;
+      position: relative;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2) 70%, var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .modal .modal-sub { color: var(--text2); font-size: 14px; margin-bottom: 28px; }
+
+    .pricing-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .pricing-card .plan-name {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent3);
+      margin-bottom: 6px;
+    }
+
+    .pricing-card .plan-price {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .pricing-card .plan-price span {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text2);
+    }
+
+    .pricing-card .plan-desc { color: var(--text2); font-size: 13px; margin-bottom: 18px; }
+
+    .feature-list { list-style: none; }
+    .feature-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text);
+      padding: 6px 0;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      color: var(--accent3);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── Accessibility ── */
+    .a11y-btn {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      z-index: 999;
+      box-shadow: 0 4px 20px rgba(124,58,237,0.5);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .a11y-btn:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(124,58,237,0.7); }
+
+    .a11y-panel {
+      display: none;
+      position: fixed;
+      bottom: 88px;
+      left: 24px;
+      width: 260px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      z-index: 998;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      animation: slideUp 0.2s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .a11y-panel.visible { display: block; }
+    .a11y-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+    .a11y-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .a11y-row label { font-size: 13px; color: var(--text2); }
+
+    .a11y-toggle {
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--border);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .a11y-toggle.on { background: var(--accent); }
+
+    .a11y-toggle::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: left 0.2s;
+    }
+
+    .a11y-toggle.on::after { left: 21px; }
+
+    .a11y-font-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .a11y-font-row label { font-size: 13px; color: var(--text2); flex: 1; }
+
+    .a11y-font-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .a11y-font-btn:hover { border-color: var(--accent); }
+    .a11y-font-size { font-size: 13px; color: var(--text2); min-width: 30px; text-align: center; }
+
+    body.high-contrast {
+      --bg: #000;
+      --surface: #111;
+      --surface2: #222;
+      --border: #555;
+      --text: #fff;
+      --text2: #ccc;
+    }
+
+    body.large-text { font-size: 18px; }
+    body.large-text textarea { font-size: 18px; }
+    body.large-text .tab-btn { font-size: 16px; }
+
+    body.reduce-motion * {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text2);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .card { padding: 20px; }
+      .aspect-selector { gap: 6px; }
+      .nav-username { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon"><img src="/static/logo.png" alt="AiCraft"/></div>
+      <span class="nav-logo-text">AiCraft</span>
+    </a>
+    <div class="nav-right">
+      <button class="nav-btn about-btn" onclick="openAbout()">ℹ About &amp; Pricing</button>
+      <div class="nav-user">
+        <span class="nav-username">{{ user.username }}</span>
+        <span class="quota-badge {% if remaining <= 5 %}low{% endif %}" id="quota-badge"
+              title="Generations remaining today">
+          ✦ <span id="quota-count">{{ remaining }}</span>/{{ daily_limit }} left
+        </span>
+      </div>
+      <a href="/logout" class="nav-btn">Sign Out</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <header>
+    <h1>Create &amp; Edit Images<br/>with AI</h1>
+    <p class="subtitle">Generate from text or edit any image with a prompt</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('generate')">✦ Generate Image</button>
+    <button class="tab-btn" onclick="switchTab('edit')">✎ Edit Image</button>
+  </div>
+
+  <!-- GENERATE TAB -->
+  <div class="tab-panel active" id="tab-generate">
+    <div class="card">
+      <div class="label">Quick Prompts</div>
+      <div class="suggestions">
+        <span class="suggestion-chip" onclick="setPrompt(this, 'generate')">🌆 Cyberpunk city at night</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'generate')">🌊 Ocean sunset hyperrealistic</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'generate')">🧙 Fantasy wizard portrait</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'generate')">🚀 Space station interior</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'generate')">🌸 Japanese garden 8K</span>
+      </div>
+
+      <!-- Prompt history chips (populated by JS) -->
+      <div id="gen-history-section" style="display:none">
+        <div class="history-label">🕐 Recent prompts</div>
+        <div class="suggestions" id="gen-history-chips"></div>
+      </div>
+
+      <div class="label">Prompt</div>
+      <textarea id="gen-prompt" placeholder="Describe your image... e.g. 'A majestic dragon flying over a medieval castle at sunset, cinematic lighting, 8K, photorealistic'"></textarea>
+
+      <!-- Aspect ratio -->
+      <div class="label">Aspect Ratio</div>
+      <div class="aspect-selector" role="radiogroup" aria-label="Aspect ratio">
+        <label class="aspect-option selected" id="ar-square">
+          <input type="radio" name="aspect_ratio" value="square" checked/>
+          <div class="aspect-preview square"></div>
+          <span class="aspect-label">Square 1:1</span>
+        </label>
+        <label class="aspect-option" id="ar-landscape">
+          <input type="radio" name="aspect_ratio" value="landscape"/>
+          <div class="aspect-preview landscape"></div>
+          <span class="aspect-label">Landscape 16:9</span>
+        </label>
+        <label class="aspect-option" id="ar-portrait">
+          <input type="radio" name="aspect_ratio" value="portrait"/>
+          <div class="aspect-preview portrait"></div>
+          <span class="aspect-label">Portrait 9:16</span>
+        </label>
+      </div>
+
+      <button class="generate-btn" id="gen-btn" onclick="generateImage()">
+        <span>✦ Generate Image</span>
+      </button>
+      <div class="error-msg" id="gen-error"></div>
+    </div>
+  </div>
+
+  <!-- EDIT TAB -->
+  <div class="tab-panel" id="tab-edit">
+    <div class="card">
+      <div class="label">Upload Image</div>
+
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="image-input" accept="image/*" onchange="previewImage(event)"/>
+        <div class="upload-icon">🖼️</div>
+        <div class="upload-text"><strong>Click to upload</strong> or drag &amp; drop</div>
+        <div class="upload-text" style="margin-top:4px; font-size:12px;">PNG, JPG, WEBP supported</div>
+      </div>
+
+      <div class="preview-wrapper" id="preview-wrapper">
+        <img id="preview-img" src="" alt="Preview" class="preview-img"/>
+        <button class="remove-preview" onclick="removePreview()">✕</button>
+      </div>
+
+      <div class="label">Edit Prompt</div>
+      <div class="suggestions" style="margin-bottom:12px">
+        <span class="suggestion-chip" onclick="setPrompt(this, 'edit')">🌅 Change background to sunset</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'edit')">🎨 Make it look like oil painting</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'edit')">🌧️ Add rain and dark clouds</span>
+        <span class="suggestion-chip" onclick="setPrompt(this, 'edit')">✨ Make it futuristic</span>
+      </div>
+
+      <!-- Edit prompt history -->
+      <div id="edit-history-section" style="display:none">
+        <div class="history-label">🕐 Recent prompts</div>
+        <div class="suggestions" id="edit-history-chips"></div>
+      </div>
+
+      <textarea id="edit-prompt" placeholder="Describe how to edit the image... e.g. 'Change the sky to a dramatic stormy night with lightning'"></textarea>
+
+      <button class="generate-btn" id="edit-btn" onclick="editImage()">
+        <span>✎ Edit Image</span>
+      </button>
+      <div class="error-msg" id="edit-error"></div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Processing<span class="loading-dots"></span></div>
+    <div style="color: var(--text2); font-size: 13px;">This may take 20-40 seconds</div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-section card" id="result-section">
+    <div class="label" style="margin-bottom:16px">Result</div>
+    <div class="result-image-wrapper">
+      <img id="result-image" src="" alt="Result" class="result-image"/>
+      <div class="image-overlay">
+        <div class="action-btns">
+          <a id="download-btn" href="#" download="ai-image.png" class="action-btn">⬇ Download</a>
+          <button class="action-btn" onclick="openLightbox()">⛶ Fullscreen</button>
+          <button class="action-btn" id="share-copy-btn" onclick="copyShareLink()">🔗 Copy Link</button>
+          <a id="share-page-btn" href="#" target="_blank" class="action-btn">↗ Share Page</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gallery -->
+  <div class="gallery-section" id="gallery-section" style="display:none">
+    <div class="section-header">
+      <div class="section-title">Your Gallery</div>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
+
+  <footer>
+    Powered by FLUX · Hugging Face · Replicate &nbsp;·&nbsp; AiCraft
+  </footer>
+</div>
+
+<!-- Accessibility Button -->
+<button class="a11y-btn" onclick="toggleA11yPanel()" aria-label="Accessibility options" title="Accessibility">♿</button>
+
+<div class="a11y-panel" id="a11y-panel" role="dialog" aria-label="Accessibility options">
+  <div class="a11y-title">♿ Accessibility</div>
+  <div class="a11y-row">
+    <label for="toggle-contrast">High Contrast</label>
+    <button class="a11y-toggle" id="toggle-contrast" onclick="toggleA11y('contrast')" aria-pressed="false"></button>
+  </div>
+  <div class="a11y-row">
+    <label for="toggle-motion">Reduce Motion</label>
+    <button class="a11y-toggle" id="toggle-motion" onclick="toggleA11y('motion')" aria-pressed="false"></button>
+  </div>
+  <div class="a11y-row">
+    <label for="toggle-text">Large Text</label>
+    <button class="a11y-toggle" id="toggle-text" onclick="toggleA11y('text')" aria-pressed="false"></button>
+  </div>
+  <div class="a11y-font-row">
+    <label>Font Size</label>
+    <button class="a11y-font-btn" onclick="changeFontSize(-1)" aria-label="Decrease font size">A-</button>
+    <span class="a11y-font-size" id="font-size-label">100%</span>
+    <button class="a11y-font-btn" onclick="changeFontSize(1)" aria-label="Increase font size">A+</button>
+  </div>
+  <div class="a11y-row">
+    <label for="toggle-focus">Focus Indicators</label>
+    <button class="a11y-toggle on" id="toggle-focus" onclick="toggleA11y('focus')" aria-pressed="true"></button>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt=""/>
+</div>
+
+<!-- About / Pricing Modal -->
+<div class="modal-overlay" id="about-modal" onclick="closeAbout(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="About AiCraft">
+    <button class="modal-close" onclick="closeAbout()" aria-label="Close">✕</button>
+    <h2>AiCraft</h2>
+    <p class="modal-sub">AI-powered image generation and editing, right in your browser.</p>
+
+    <div class="pricing-card">
+      <div class="plan-name">Free Tier</div>
+      <div class="plan-price">$0 <span>/ forever</span></div>
+      <div class="plan-desc">Everything you need to start creating.</div>
+      <ul class="feature-list">
+        <li>20 generations per day (resets at midnight)</li>
+        <li>Text-to-image with FLUX.1-schnell</li>
+        <li>AI image editing with FLUX Kontext Pro</li>
+        <li>Square, Landscape &amp; Portrait aspect ratios</li>
+        <li>Personal gallery with share links</li>
+        <li>Prompt history (last 10 prompts)</li>
+        <li>Download in full resolution PNG</li>
+      </ul>
+    </div>
+
+    <p style="font-size:13px; color: var(--text2); text-align:center;">
+      Powered by Hugging Face &amp; Replicate APIs
+    </p>
+  </div>
+</div>
+
+
+<script>
+  // ── Constants ──────────────────────────────────────────────
+  const HISTORY_KEY_GEN  = 'aicraft_history_gen';
+  const HISTORY_KEY_EDIT = 'aicraft_history_edit';
+  const MAX_HISTORY = 10;
+
+  let currentShareUrl = '';
+
+  // ── Aspect ratio ───────────────────────────────────────────
+  document.querySelectorAll('.aspect-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.aspect-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      opt.querySelector('input[type="radio"]').checked = true;
+    });
+  });
+
+  function getAspectRatio() {
+    const checked = document.querySelector('input[name="aspect_ratio"]:checked');
+    return checked ? checked.value : 'square';
+  }
+
+  // ── Prompt history ─────────────────────────────────────────
+  function getHistory(key) {
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveToHistory(key, prompt) {
+    let history = getHistory(key);
+    history = history.filter(p => p !== prompt);
+    history.unshift(prompt);
+    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+    localStorage.setItem(key, JSON.stringify(history));
+  }
+
+  function renderHistory(key, sectionId, chipsId, tab) {
+    const history = getHistory(key);
+    const section = document.getElementById(sectionId);
+    const chips   = document.getElementById(chipsId);
+    if (!history.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    chips.innerHTML = '';
+    history.forEach(p => {
+      const chip = document.createElement('span');
+      chip.className = 'history-chip';
+      chip.textContent = p.length > 40 ? p.slice(0, 40) + '…' : p;
+      chip.title = p;
+      chip.onclick = () => {
+        const id = tab === 'generate' ? 'gen-prompt' : 'edit-prompt';
+        document.getElementById(id).value = p;
+      };
+      chips.appendChild(chip);
+    });
+  }
+
+  function refreshHistories() {
+    renderHistory(HISTORY_KEY_GEN,  'gen-history-section',  'gen-history-chips',  'generate');
+    renderHistory(HISTORY_KEY_EDIT, 'edit-history-section', 'edit-history-chips', 'edit');
+  }
+
+  // ── Quota badge ────────────────────────────────────────────
+  function updateQuota(remaining) {
+    const badge = document.getElementById('quota-badge');
+    const count = document.getElementById('quota-count');
+    count.textContent = remaining;
+    badge.classList.toggle('low', remaining <= 5);
+  }
+
+  // ── Accessibility ──────────────────────────────────────────
+  const a11yState = JSON.parse(localStorage.getItem('a11y') || '{}');
+  let fontScale = 100;
+
+  function applyA11y() {
+    document.body.classList.toggle('high-contrast', !!a11yState.contrast);
+    document.body.classList.toggle('reduce-motion', !!a11yState.motion);
+    document.body.classList.toggle('large-text',    !!a11yState.text);
+    document.getElementById('toggle-contrast').classList.toggle('on', !!a11yState.contrast);
+    document.getElementById('toggle-motion').classList.toggle('on',   !!a11yState.motion);
+    document.getElementById('toggle-text').classList.toggle('on',     !!a11yState.text);
+    document.getElementById('toggle-focus').classList.toggle('on',    a11yState.focus !== false);
+    if (a11yState.focus === false) document.body.style.setProperty('--focus-ring', 'none');
+    else document.body.style.removeProperty('--focus-ring');
+    fontScale = a11yState.fontScale || 100;
+    document.documentElement.style.fontSize = fontScale + '%';
+    document.getElementById('font-size-label').textContent = fontScale + '%';
+  }
+
+  function toggleA11y(key) {
+    if (key === 'focus') a11yState.focus = a11yState.focus === false ? true : false;
+    else a11yState[key] = !a11yState[key];
+    localStorage.setItem('a11y', JSON.stringify(a11yState));
+    applyA11y();
+  }
+
+  function changeFontSize(dir) {
+    fontScale = Math.min(150, Math.max(80, fontScale + dir * 10));
+    a11yState.fontScale = fontScale;
+    localStorage.setItem('a11y', JSON.stringify(a11yState));
+    document.documentElement.style.fontSize = fontScale + '%';
+    document.getElementById('font-size-label').textContent = fontScale + '%';
+  }
+
+  function toggleA11yPanel() {
+    document.getElementById('a11y-panel').classList.toggle('visible');
+  }
+
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('a11y-panel');
+    const btn   = document.querySelector('.a11y-btn');
+    if (!panel.contains(e.target) && !btn.contains(e.target)) {
+      panel.classList.remove('visible');
+    }
+  });
+
+  applyA11y();
+
+  // ── About modal ────────────────────────────────────────────
+  function openAbout() {
+    document.getElementById('about-modal').classList.add('visible');
+  }
+
+  function closeAbout(e) {
+    if (!e || e.target === document.getElementById('about-modal') || e.currentTarget.tagName === 'BUTTON') {
+      document.getElementById('about-modal').classList.remove('visible');
+    }
+  }
+
+  // ── Gallery (server-side) ──────────────────────────────────
+  async function loadGallery() {
+    try {
+      const res = await fetch('/gallery');
+      if (!res.ok) return;
+      const images = await res.json();
+      if (!images.length) return;
+      document.getElementById('gallery-section').style.display = 'block';
+      images.forEach(img => renderGalleryItem(img.path, img.prompt, img.filename, img.share_url, false));
+    } catch (e) {
+      console.warn('Gallery load failed:', e);
+    }
+  }
+
+  function renderGalleryItem(src, prompt, filename, shareUrl, prepend = true) {
+    const grid = document.getElementById('gallery-grid');
+    document.getElementById('gallery-section').style.display = 'block';
+    const item = document.createElement('div');
+    item.className = 'gallery-item';
+    item.dataset.filename = filename;
+    item.setAttribute('role', 'img');
+    item.setAttribute('aria-label', prompt);
+    item.innerHTML = `
+      <img src="${src}" alt="${prompt}" title="${prompt}" loading="lazy"/>
+      <a class="share-btn" href="${shareUrl}" target="_blank" title="Share" aria-label="Share image">↗</a>
+      <button class="del-btn" onclick="event.stopPropagation();" aria-label="Delete image" title="Delete">✕</button>
+    `;
+    item.querySelector('.del-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      item.remove();
+      if (!grid.children.length) document.getElementById('gallery-section').style.display = 'none';
+    });
+    item.addEventListener('click', () => openLightboxWith(src));
+    if (prepend) grid.insertBefore(item, grid.firstChild);
+    else grid.appendChild(item);
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'edit'));
+    });
+    document.getElementById('tab-generate').classList.toggle('active', tab === 'generate');
+    document.getElementById('tab-edit').classList.toggle('active', tab === 'edit');
+    document.getElementById('result-section').classList.remove('visible');
+  }
+
+  function setPrompt(chip, tab) {
+    const text = chip.textContent.replace(/^[\S]+\s/, '');
+    const id = tab === 'generate' ? 'gen-prompt' : 'edit-prompt';
+    document.getElementById(id).value = text;
+  }
+
+  // ── Image upload ───────────────────────────────────────────
+  function previewImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('preview-wrapper').classList.add('visible');
+      document.getElementById('upload-area').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePreview() {
+    document.getElementById('image-input').value = '';
+    document.getElementById('preview-img').src = '';
+    document.getElementById('preview-wrapper').classList.remove('visible');
+    document.getElementById('upload-area').style.display = 'block';
+  }
+
+  const uploadArea = document.getElementById('upload-area');
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      document.getElementById('image-input').files = e.dataTransfer.files;
+      previewImage({ target: { files: [file] } });
+    }
+  });
+
+  // ── Generate ───────────────────────────────────────────────
+  async function generateImage() {
+    const prompt = document.getElementById('gen-prompt').value.trim();
+    if (!prompt) { showError('gen-error', 'Please enter a prompt.'); return; }
+
+    hideError('gen-error');
+    setLoading(true, 'Generating your image');
+    document.getElementById('gen-btn').disabled = true;
+    document.getElementById('result-section').classList.remove('visible');
+
+    try {
+      const res = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, aspect_ratio: getAspectRatio() })
+      });
+      const data = await res.json();
+      if (data.error) {
+        showError('gen-error', data.error);
+      } else {
+        saveToHistory(HISTORY_KEY_GEN, prompt);
+        refreshHistories();
+        showResult(data.image, data.share_url, data.path);
+        renderGalleryItem(data.path, prompt, data.filename, data.share_url, true);
+        if (data.remaining !== undefined) updateQuota(data.remaining);
+      }
+    } catch (err) {
+      showError('gen-error', 'Network error: ' + err.message);
+    } finally {
+      setLoading(false);
+      document.getElementById('gen-btn').disabled = false;
+    }
+  }
+
+  // ── Edit ───────────────────────────────────────────────────
+  async function editImage() {
+    const prompt    = document.getElementById('edit-prompt').value.trim();
+    const fileInput = document.getElementById('image-input');
+
+    if (!prompt)              { showError('edit-error', 'Please enter an edit prompt.'); return; }
+    if (!fileInput.files[0])  { showError('edit-error', 'Please upload an image.'); return; }
+
+    hideError('edit-error');
+    setLoading(true, 'Editing your image');
+    document.getElementById('edit-btn').disabled = true;
+    document.getElementById('result-section').classList.remove('visible');
+
+    try {
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('image', fileInput.files[0]);
+
+      const res = await fetch('/edit', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) {
+        showError('edit-error', data.error);
+      } else {
+        saveToHistory(HISTORY_KEY_EDIT, prompt);
+        refreshHistories();
+        showResult(data.image, data.share_url, data.path);
+        renderGalleryItem(data.path, prompt, data.filename, data.share_url, true);
+        if (data.remaining !== undefined) updateQuota(data.remaining);
+      }
+    } catch (err) {
+      showError('edit-error', 'Network error: ' + err.message);
+    } finally {
+      setLoading(false);
+      document.getElementById('edit-btn').disabled = false;
+    }
+  }
+
+  // ── Share ──────────────────────────────────────────────────
+  function copyShareLink() {
+    if (!currentShareUrl) return;
+    navigator.clipboard.writeText(currentShareUrl).then(() => {
+      const btn = document.getElementById('share-copy-btn');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2500);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = currentShareUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      const btn = document.getElementById('share-copy-btn');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2500);
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function showResult(imageSrc, shareUrl, staticPath) {
+    currentShareUrl = shareUrl || '';
+    document.getElementById('result-image').src = imageSrc;
+    document.getElementById('download-btn').href = imageSrc;
+    if (staticPath) document.getElementById('download-btn').href = staticPath;
+    if (shareUrl) {
+      document.getElementById('share-page-btn').href = shareUrl;
+      document.getElementById('share-copy-btn').style.display = '';
+      document.getElementById('share-page-btn').style.display = '';
+    }
+    document.getElementById('result-section').classList.add('visible');
+    document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setLoading(show, text = 'Processing') {
+    document.getElementById('loading').classList.toggle('visible', show);
+    document.getElementById('loading-text').innerHTML = text + '<span class="loading-dots"></span>';
+  }
+
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = '❌ ' + msg;
+    el.classList.add('visible');
+  }
+
+  function hideError(id) { document.getElementById(id).classList.remove('visible'); }
+
+  function openLightbox()       { openLightboxWith(document.getElementById('result-image').src); }
+  function openLightboxWith(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('visible');
+  }
+  function closeLightbox() { document.getElementById('lightbox').classList.remove('visible'); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeLightbox();
+      closeAbout();
+    }
+  });
+
+  document.getElementById('gen-prompt').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) generateImage();
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  refreshHistories();
+  loadGallery();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>404 — AiCraft</title>
+  <link rel="icon" type="image/png" href="/static/logo.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #0a0a0f; --surface: #111118; --border: #2a2a3a; --accent: #7c3aed; --accent2: #a855f7; --accent3: #06b6d4; --text: #f1f1f5; --text2: #9090a8; }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(124,58,237,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .content { position: relative; z-index: 1; }
+    .code {
+      font-size: 120px; font-weight: 700; line-height: 1;
+      background: linear-gradient(135deg, var(--accent2), var(--accent3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 24px; font-weight: 600; margin-bottom: 12px; }
+    p { color: var(--text2); font-size: 15px; margin-bottom: 32px; }
+    a {
+      display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px;
+      border-radius: 14px; border: none; background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white; font-size: 15px; font-weight: 600; text-decoration: none; transition: all 0.2s;
+    }
+    a:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124,58,237,0.4); }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <div class="code">404</div>
+    <h1>Page not found</h1>
+    <p>The page you're looking for doesn't exist or has been moved.</p>
+    <a href="/">← Back to AiCraft</a>
+  </div>
+</body>
+</html>
